@@ -42,6 +42,7 @@ public class Uio {
     public static void             mkdir(String url)                           {                       MKDIR.invoke(url); }
     public static void              copy(String fromUrl, String toUrl)         {                        COPY.invoke(fromUrl, toUrl); }
     public static Iterable<Entry>     ls(String url)                           { return ls(url, opts()); }
+    @SuppressWarnings("unchecked")
     public static Iterable<Entry>     ls(String url, Map<String, Object> opts) { return ((List<Map<Keyword, Object>>) LS.invoke(url, s2o_k2o(opts)))
                                                                                         .stream()
                                                                                         .map(Uio::k2o_entry)::iterator; }

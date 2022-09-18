@@ -23,8 +23,8 @@
 
   :jar-exclusions [#".*\.java"]
   :java-source-paths ["src"]
-  :javac-options ["-source" "1.8"
-                  "-target" "1.8"]
+  :javac-options ["-source" "1.8" "-target" "1.8"
+                  "-Xlint:unchecked" "-Xlint:deprecation"]
 
   :profiles {:dev {:dependencies [[midje "1.10.5"]]
                    :plugins      [[lein-midje "3.2.1"]]}}
