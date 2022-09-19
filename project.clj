@@ -4,7 +4,7 @@
   :deploy-repositories [["clojars" {:url           "https://clojars.org/repo/"
                                     :sign-releases false}]]
 
-  :dependencies [[org.clojure/clojure "1.8.0"]
+  :dependencies [[org.clojure/clojure "1.11.1"]
                  [clj-commons/fs "1.6.310"]
 
                  [com.amazonaws/aws-java-sdk-s3 "1.12.300"] ; s3
