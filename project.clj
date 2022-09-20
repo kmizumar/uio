@@ -26,6 +26,7 @@
 
   :jar-exclusions [#".*\.java"]
   :java-source-paths ["src"]
+  :resource-paths ["resources"]
   :javac-options ["-source" "1.8"
                   "-target" "1.8"
                   "-Xlint:deprecation"
