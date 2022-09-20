@@ -7,13 +7,13 @@
 ; :role-arn
 ;
 (ns uio.fs.s3
-  (:require [uio.impl :refer :all]
-            [clojure.string :as str])
-  (:import [com.amazonaws.auth BasicAWSCredentials STSAssumeRoleSessionCredentialsProvider AWSCredentialsProvider]
-           [com.amazonaws.client.builder AwsClientBuilder$EndpointConfiguration AwsClientBuilder]
-           [com.amazonaws.internal StaticCredentialsProvider]
+  (:require [clojure.string :as str]
+            [uio.impl :refer :all])
+  (:import [com.amazonaws.auth AWSCredentialsProvider BasicAWSCredentials STSAssumeRoleSessionCredentialsProvider$Builder AWSStaticCredentialsProvider]
+           [com.amazonaws.client.builder AwsClientBuilder$EndpointConfiguration]
            [com.amazonaws.services.s3 AmazonS3Client AmazonS3ClientBuilder]
-           [com.amazonaws.services.s3.model ListObjectsRequest ObjectListing S3ObjectSummary GetObjectRequest CannedAccessControlList AmazonS3Exception]
+           [com.amazonaws.services.s3.model AmazonS3Exception CannedAccessControlList GetObjectRequest ListObjectsRequest ObjectListing S3ObjectSummary]
+           [com.amazonaws.services.securitytoken AWSSecurityTokenServiceClientBuilder]
            [uio.fs S3$S3OutputStream]
            [java.nio.file NoSuchFileException]))
 
@@ -57,8 +57,12 @@
         _     (if-not secret (die-creds-key-not-found :secret url creds))
         bawsc (BasicAWSCredentials. access secret)]
     (if role-arn
-      (STSAssumeRoleSessionCredentialsProvider. bawsc ^String role-arn "uio-s3-session")
-      (StaticCredentialsProvider. bawsc))))
+      (-> (STSAssumeRoleSessionCredentialsProvider$Builder. ^String role-arn "uio-s3-session")
+          (.withStsClient (-> (AWSSecurityTokenServiceClientBuilder/standard)
+                              (.withCredentials bawsc)
+                              (.build)))
+          (.build))
+      (AWSStaticCredentialsProvider. bawsc))))
 
 (defn ^AmazonS3Client aws-s3-client [url]
   (let [{:keys [endpoint path-style]} (url->creds url)]
