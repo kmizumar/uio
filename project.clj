@@ -14,7 +14,8 @@
                  [com.jcraft/jsch "0.1.55"]                 ; sftp
                  [com.jcraft/jzlib "1.1.3"]                 ; (needed by `jsch`)
 
-                 [org.apache.hadoop/hadoop-common "3.3.2"]
+                 [org.apache.hadoop/hadoop-common "3.3.2"
+                  :exclusions [org.apache.httpcomponents/httpcore]] ; conflicts with `aws-java-sdk-s3`
                  [org.apache.hadoop/hadoop-hdfs "3.3.2"]
                  [org.apache.hadoop/hadoop-hdfs-client "3.3.2"]
 
@@ -25,6 +26,7 @@
 
   :jar-exclusions [#".*\.java"]
   :java-source-paths ["src"]
+  :resource-paths ["resources"]
   :javac-options ["-source" "1.8"
                   "-target" "1.8"
                   "-Xlint:deprecation"
@@ -37,8 +39,7 @@
   :main uio.main.main
 
   :uberjar-name "uio.jar"
-  :bin {:name "uio"
-        :bootclasspath true}
+  :bin {:name "uio"}
 
   :plugins [[lein-bin "0.3.5"]
             [lein-pprint "1.3.2"]]

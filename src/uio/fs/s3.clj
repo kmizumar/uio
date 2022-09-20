@@ -7,12 +7,13 @@
 ; :role-arn
 ;
 (ns uio.fs.s3
-  (:require [uio.impl :refer :all]
-            [clojure.string :as str])
-  (:import [com.amazonaws.auth BasicAWSCredentials STSAssumeRoleSessionCredentialsProvider AWSCredentialsProvider]
-           [com.amazonaws.internal StaticCredentialsProvider]
-           [com.amazonaws.services.s3 AmazonS3Client]
-           [com.amazonaws.services.s3.model ListObjectsRequest ObjectListing S3ObjectSummary GetObjectRequest CannedAccessControlList AmazonS3Exception]
+  (:require [clojure.string :as str]
+            [uio.impl :refer :all])
+  (:import [com.amazonaws.auth AWSCredentialsProvider BasicAWSCredentials STSAssumeRoleSessionCredentialsProvider$Builder AWSStaticCredentialsProvider]
+           [com.amazonaws.client.builder AwsClientBuilder$EndpointConfiguration]
+           [com.amazonaws.services.s3 AmazonS3Client AmazonS3ClientBuilder]
+           [com.amazonaws.services.s3.model AmazonS3Exception CannedAccessControlList GetObjectRequest ListObjectsRequest ObjectListing S3ObjectSummary]
+           [com.amazonaws.services.securitytoken AWSSecurityTokenServiceClientBuilder]
            [uio.fs S3$S3OutputStream]
            [java.nio.file NoSuchFileException]))
 
@@ -22,18 +23,59 @@
 (defn url->key [^String url]
   (subs (or (path url) "_") 1))
 
+;/**
+; * Constructs a new Amazon S3 client using the specified Amazon Web Services credentials
+; * provider to access Amazon S3.
+; *
+; * @param credentialsProvider
+; *            The Amazon Web Services credentials provider which will provide credentials
+; *            to authenticate requests with Amazon Web Services services.
+; * @deprecated use {@link AmazonS3ClientBuilder#withCredentials(AWSCredentialsProvider)}
+; */
+;@Deprecated
+;public AmazonS3Client(AWSCredentialsProvider credentialsProvider) {
+;    this(credentialsProvider, configFactory.getConfig());
+;}
+; The following code snippet is used to create an AWSCredentialProvider instance,
+; which is used to create an AmazonS3Client instance with the deprecated constructor.
+;
+
+;AmazonS3 s3 = AmazonS3ClientBuilder.standard()
+;     .withEndpointConfiguration(new EndpointConfiguration(
+;          "https://s3.eu-west-1.amazonaws.com",
+;          "eu-west-1"))
+;     .withCredentials(CREDENTIALS_PROVIDER)
+;     .build();
+;
+; The recommended way to create an AmazonS3Client instance is changed to the above.
+; I guess we're able to use the result of (->creds-provider url) as the CREDENTIALS_PROVIDER
+; argument.
+
 (defn ^AWSCredentialsProvider ->creds-provider [url]
   (let [{:keys [access secret role-arn] :as creds} (url->creds url)
         _     (if-not access (die-creds-key-not-found :access url creds))
         _     (if-not secret (die-creds-key-not-found :secret url creds))
         bawsc (BasicAWSCredentials. access secret)]
     (if role-arn
-      (STSAssumeRoleSessionCredentialsProvider. bawsc ^String role-arn "uio-s3-session")
-      (StaticCredentialsProvider. bawsc))))
+      (-> (STSAssumeRoleSessionCredentialsProvider$Builder. ^String role-arn "uio-s3-session")
+          (.withStsClient (-> (AWSSecurityTokenServiceClientBuilder/standard)
+                              (.withCredentials bawsc)
+                              (.build)))
+          (.build))
+      (AWSStaticCredentialsProvider. bawsc))))
+
+(defn ^AmazonS3Client aws-s3-client [url]
+  (let [{:keys [endpoint path-style]} (url->creds url)]
+    (cond-> (AmazonS3ClientBuilder/standard)
+            endpoint (.withEndpointConfiguration
+                       (AwsClientBuilder$EndpointConfiguration. endpoint "ap-northeast-1"))
+            true (.withCredentials (->creds-provider url))
+            path-style (.enablePathStyleAccess)
+            true (.build))))
 
 (defn with-client-bucket-key [url c-b-k->x]
   (try-with url
-            #(AmazonS3Client. (->creds-provider url))
+            #(aws-s3-client url)
             #(c-b-k->x % (host url) (url->key url))
             #(.shutdown %)))
 
@@ -51,7 +93,7 @@
                                                   (+ start
                                                      (:length opts))
                                                   (dec (Long/MAX_VALUE)))]
-                                      (wrap-is #(AmazonS3Client. (->creds-provider url))
+                                      (wrap-is #(aws-s3-client url)
                                                #(.getObjectContent
                                                   (.getObject %
                                                               (.withRange
@@ -60,7 +102,7 @@
                                                                 end)))
                                                #(.shutdown %))))
 
-(defmethod to      :s3 [url & [opts]] (wrap-os #(AmazonS3Client. (->creds-provider url))
+(defmethod to      :s3 [url & [opts]] (wrap-os #(aws-s3-client url)
                                                #(S3$S3OutputStream. % (host url) (url->key url) (some-> opts :acl acl->enum))
                                                #(.shutdown %)))
 
@@ -163,7 +205,7 @@
 (defmethod ls      :s3 [url & args] (single-file-or
                                       url
                                       (let [opts (get-opts default-opts-ls url args)
-                                            c    (AmazonS3Client. (->creds-provider url))
+                                            c    (aws-s3-client url)
                                             b    (host url)
                                             k    (url->key (ensure-ends-with-delimiter url))]
                                         (cond->> (close-when-realized-or-finalized
