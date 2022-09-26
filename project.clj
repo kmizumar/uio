@@ -7,8 +7,8 @@
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [clj-commons/fs "1.6.310"]
 
-                 [com.amazonaws/aws-java-sdk-s3 "1.12.300"] ; s3
-                 [com.amazonaws/aws-java-sdk-sts "1.12.300"] ; s3 with roles
+                 [com.amazonaws/aws-java-sdk-s3 "1.12.307"] ; s3
+                 [com.amazonaws/aws-java-sdk-sts "1.12.307"] ; s3 with roles
                  [org.apache.httpcomponents/httpclient "4.5.13"] ; (needed by `aws-java-sdk-s3`)
 
                  [com.jcraft/jsch "0.1.55"]                 ; sftp
