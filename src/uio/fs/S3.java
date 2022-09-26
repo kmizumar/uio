@@ -44,7 +44,7 @@ public class S3 {
                     .withCannedACL(cannedAclOrNull)); // setting only here, not setting in UploadPartRequest
 
             partTempFile = Files.createTempFile("uio-s3-part-", ".tmp").toFile();
-            partOutputStream = new Streams.StatsableOutputStream(new FileOutputStream(partTempFile));
+            partOutputStream = new Streams.StatsableOutputStream(Files.newOutputStream(partTempFile.toPath()));
         }
 
         public void write(int b) throws IOException {
@@ -81,28 +81,22 @@ public class S3 {
         private void _flush(boolean isLastPart) throws IOException {
             partOutputStream.close();
 
-            String localPartEtag = hex(partDigest.digest());
             try {
                 UploadPartRequest upr = new UploadPartRequest()
-                        .withBucketName(init.getBucketName())
-                        .withKey(init.getKey())
-                        .withUploadId(init.getUploadId())
-                        .withPartNumber(partIndex + 1)
-                        .withFile(partTempFile)
-                        .withPartSize(partOutputStream.getByteCount())
-                        .withLastPart(isLastPart);
+                    .withBucketName(init.getBucketName())
+                    .withKey(init.getKey())
+                    .withUploadId(init.getUploadId())
+                    .withPartNumber(partIndex + 1)
+                    .withFile(partTempFile)
+                    .withPartSize(partOutputStream.getByteCount())
+                    .withLastPart(isLastPart)
+                    .withMD5Digest(hex(partDigest.digest()));
 
                 PartETag remotePartEtag = c.uploadPart(upr).getPartETag();
                 tags.add(remotePartEtag);
 
-//                if (!remotePartEtag.getETag().equals(localPartEtag)) {
-//                    throw new RuntimeException("Part ETags don't match:\n" +
-//                            " - local : " + localPartEtag + "\n" +
-//                            " - remote: " + remotePartEtag.getETag());
-//                }
-
                 partDigest.reset();
-                partOutputStream = new Streams.StatsableOutputStream(new FileOutputStream(partTempFile));
+                partOutputStream = new Streams.StatsableOutputStream(Files.newOutputStream(partTempFile.toPath()));
                 partIndex++;
             } catch (Exception e) {
                 abort();
