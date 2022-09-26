@@ -44,7 +44,7 @@ public class S3 {
                     .withCannedACL(cannedAclOrNull)); // setting only here, not setting in UploadPartRequest
 
             partTempFile = Files.createTempFile("uio-s3-part-", ".tmp").toFile();
-            partOutputStream = new Streams.StatsableOutputStream(new FileOutputStream(partTempFile));
+            partOutputStream = new Streams.StatsableOutputStream(Files.newOutputStream(partTempFile.toPath()));
         }
 
         public void write(int b) throws IOException {
@@ -102,7 +102,7 @@ public class S3 {
 //                }
 
                 partDigest.reset();
-                partOutputStream = new Streams.StatsableOutputStream(new FileOutputStream(partTempFile));
+                partOutputStream = new Streams.StatsableOutputStream(Files.newOutputStream(partTempFile.toPath()));
                 partIndex++;
             } catch (Exception e) {
                 abort();
