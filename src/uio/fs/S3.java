@@ -95,11 +95,11 @@ public class S3 {
                 PartETag remotePartEtag = c.uploadPart(upr).getPartETag();
                 tags.add(remotePartEtag);
 
-                if (!remotePartEtag.getETag().equals(localPartEtag)) {
-                    throw new RuntimeException("Part ETags don't match:\n" +
-                            " - local : " + localPartEtag + "\n" +
-                            " - remote: " + remotePartEtag.getETag());
-                }
+//                if (!remotePartEtag.getETag().equals(localPartEtag)) {
+//                    throw new RuntimeException("Part ETags don't match:\n" +
+//                            " - local : " + localPartEtag + "\n" +
+//                            " - remote: " + remotePartEtag.getETag());
+//                }
 
                 partDigest.reset();
                 partOutputStream = new Streams.StatsableOutputStream(new FileOutputStream(partTempFile));
