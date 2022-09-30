@@ -62,7 +62,7 @@
 (def ->digestible         i/->digestible)                   ; use with (close-and-digest ...)
 (def close-and-digest     i/close-and-digest)
 
-(def ->statsable          i/->statsable)                    ; use with (byte-count ...)
+(def ->countable          i/->countable)                    ; use with (byte-count ...)
 (def byte-count           i/byte-count)
 
 ; TODO consider replacing the above with something like:

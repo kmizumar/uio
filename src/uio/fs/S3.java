@@ -22,29 +22,32 @@ public class S3 {
         // 549,755,814 bytes per part -- enough to cover a 5TB file with 10000 parts
         private static final int PART_SIZE = (int) (((5L * 1024 * 1024 * 1024 * 1024) / 10000) + 1);
 
-        private final AmazonS3Client c;
-        private final InitiateMultipartUploadResult init;
+        private final AmazonS3Client s3Client;
+        private final InitiateMultipartUploadResult initResponse;
 
-        private final List<PartETag> tags = new ArrayList<>();
+        private final List<PartETag> partETags = new ArrayList<>();
 
         private final MessageDigest inDigest = MessageDigest.getInstance("MD5");
         private final MessageDigest outDigest = MessageDigest.getInstance("MD5");
         private final MessageDigest partDigest = MessageDigest.getInstance("MD5");
 
         private final File partTempFile;
-        private Streams.StatsableOutputStream partOutputStream;
-        private int partIndex;
+        private Streams.CountableOutputStream partOutputStream;
+        private int partIndex = 1;
 
         private boolean closed;
 
-        public S3OutputStream(AmazonS3Client c, String bucket, String key, CannedAccessControlList cannedAclOrNull) throws NoSuchAlgorithmException, IOException {
-            this.c = c;
+        public S3OutputStream(AmazonS3Client s3Client, String bucketName, String keyName,
+                              CannedAccessControlList cannedAclOrNull) throws NoSuchAlgorithmException, IOException {
+            this.s3Client = s3Client;
 
-            init = c.initiateMultipartUpload(new InitiateMultipartUploadRequest(bucket, key)
-                    .withCannedACL(cannedAclOrNull)); // setting only here, not setting in UploadPartRequest
+            // Initiate the multipart upload.
+            InitiateMultipartUploadRequest initRequest = new InitiateMultipartUploadRequest(bucketName, keyName)
+                .withCannedACL(cannedAclOrNull); // setting only here, not setting in UploadPartRequest
+            initResponse = s3Client.initiateMultipartUpload(initRequest);
 
             partTempFile = Files.createTempFile("uio-s3-part-", ".tmp").toFile();
-            partOutputStream = new Streams.StatsableOutputStream(Files.newOutputStream(partTempFile.toPath()));
+            partOutputStream = newPartOutputStream();
         }
 
         public void write(int b) throws IOException {
@@ -82,21 +85,23 @@ public class S3 {
             partOutputStream.close();
 
             try {
-                UploadPartRequest upr = new UploadPartRequest()
-                    .withBucketName(init.getBucketName())
-                    .withKey(init.getKey())
-                    .withUploadId(init.getUploadId())
-                    .withPartNumber(partIndex + 1)
+                // Create the request to upload a part.
+                UploadPartRequest uploadRequest = new UploadPartRequest()
+                    .withBucketName(initResponse.getBucketName())
+                    .withKey(initResponse.getKey())
+                    .withUploadId(initResponse.getUploadId())
+                    .withPartNumber(partIndex)
                     .withFile(partTempFile)
                     .withPartSize(partOutputStream.getByteCount())
                     .withLastPart(isLastPart)
                     .withMD5Digest(hex(partDigest.digest()));
 
-                PartETag remotePartEtag = c.uploadPart(upr).getPartETag();
-                tags.add(remotePartEtag);
+                // Upload the part and add the response's ETag to our list.
+                UploadPartResult uploadResult = s3Client.uploadPart(uploadRequest);
+                partETags.add(uploadResult.getPartETag());
 
                 partDigest.reset();
-                partOutputStream = new Streams.StatsableOutputStream(Files.newOutputStream(partTempFile.toPath()));
+                partOutputStream = newPartOutputStream();
                 partIndex++;
             } catch (Exception e) {
                 abort();
@@ -118,26 +123,20 @@ public class S3 {
                             " - read   : " + read + "\n" +
                             " - written: " + written);
 
-                String remoteEtag = c.completeMultipartUpload(
-                        new CompleteMultipartUploadRequest(init.getBucketName(), init.getKey(), init.getUploadId(), tags)
-                ).getETag();
-
-                partDigest.reset();
-                for (PartETag tag : tags) {
-                    partDigest.update(unhex(tag.getETag()));
-                }
-                String localEtag = hex(partDigest.digest()) + "-" + partIndex;
-
-                if (!localEtag.equals(remoteEtag))
-                    throw new RuntimeException("Etags don't match:\n" +
-                            " - local : " + localEtag + "\n" +
-                            " - remote: " + remoteEtag);
+                // Complete the multipart upload.
+                CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest(
+                    initResponse.getBucketName(), initResponse.getKey(), initResponse.getUploadId(), partETags);
+                s3Client.completeMultipartUpload(compRequest);
             } catch (Exception e) {
                 abort(); // TODO delete remote file if exception happened after `c.completeMultipartUpload(...)`
                 throw e;
             }
             closed = true;
             partTempFile.delete();
+        }
+
+        private Streams.CountableOutputStream newPartOutputStream() throws IOException {
+            return new Streams.CountableOutputStream(Files.newOutputStream(partTempFile.toPath()));
         }
 
         private static String hex(byte[] bs) {
@@ -149,11 +148,11 @@ public class S3 {
         }
 
         private void abort() {
-            c.abortMultipartUpload(new AbortMultipartUploadRequest(init.getBucketName(), init.getKey(), init.getUploadId()));
+            s3Client.abortMultipartUpload(new AbortMultipartUploadRequest(initResponse.getBucketName(), initResponse.getKey(), initResponse.getUploadId()));
         }
 
         public String toString() {
-            return "S3OutputStream{bucket='" + init.getBucketName() + '\'' + ", key='" + init.getKey() + '\'' + '}';
+            return "S3OutputStream{bucket='" + initResponse.getBucketName() + '\'' + ", key='" + initResponse.getKey() + '\'' + '}';
         }
     }
 }

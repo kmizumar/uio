@@ -25,10 +25,10 @@ public class Streams {
         }
     }
 
-    public static class StatsableInputStream extends FilterInputStream implements Statsable {
+    public static class CountableInputStream extends FilterInputStream implements Countable {
         private final AtomicLong count = new AtomicLong();
 
-        public StatsableInputStream(InputStream in) {
+        public CountableInputStream(InputStream in) {
             super(assertNotNull(in, "in"));
         }
 
@@ -51,14 +51,14 @@ public class Streams {
         }
 
         public String toString() {
-            return "StatsableInputStream{byteCount=" + getByteCount() + ", in=" + in.getClass().getName() + "}";
+            return "CountableInputStream{byteCount=" + getByteCount() + ", in=" + in.getClass().getName() + "}";
         }
     }
 
-    public static class StatsableOutputStream extends FilterOutputStream implements Statsable {
+    public static class CountableOutputStream extends FilterOutputStream implements Countable {
         private final AtomicLong count = new AtomicLong();
 
-        public StatsableOutputStream(OutputStream out) {
+        public CountableOutputStream(OutputStream out) {
             super(assertNotNull(out, "out"));
         }
 
@@ -77,7 +77,7 @@ public class Streams {
         }
 
         public String toString() {
-            return "StatsableOutputStream{byteCount=" + getByteCount() + ", out=" + out.getClass().getName() + "}";
+            return "CountableOutputStream{byteCount=" + getByteCount() + ", out=" + out.getClass().getName() + "}";
         }
     }
 
@@ -106,7 +106,6 @@ public class Streams {
         public String toString() {
             return "FinalizingInputStream{in=" + in.getClass().getName() + "}";
         }
-
     }
 
     public static class ConcatInputStream extends InputStream {
@@ -119,7 +118,7 @@ public class Streams {
             this.url2is = url2is;
             this.urls = new LinkedList<>(urls);
 
-            if(!nextIs())
+            if (!nextIs())
                 throw new IllegalArgumentException("Argument 'urls' can't be empty");
         }
 
@@ -321,7 +320,7 @@ public class Streams {
         return t;
     }
     
-    public interface Statsable {
+    public interface Countable {
         long getByteCount();
     }
 
