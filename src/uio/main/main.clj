@@ -195,23 +195,23 @@
     "help"    (print-usage)
 
     ; TODO report read/written from source is/os, not the wrapped/unwrapped one
-    "from"    (with-open [is (uio/->statsable (uio/from a))
-                          os (uio/->statsable System/out)]
+    "from"    (with-open [is (uio/->countable (uio/from a))
+                          os (uio/->countable System/out)]
                 (copy *get-status-fn is os is os (try (uio/size a)
                                                       (catch Exception ignore))))
 
-    "from*"   (with-open [is  (uio/->statsable (uio/from a))
+    "from*"   (with-open [is  (uio/->countable (uio/from a))
                           is* (impl/apply-codecs is (impl/url->seq-of-ext+s->s impl/ext->is->is a))
-                          os  (uio/->statsable System/out)]
+                          os  (uio/->countable System/out)]
                 (copy *get-status-fn is os is* os (try (uio/size a)
                                                        (catch Exception ignore))))
 
-    "to"      (with-open [is (uio/->statsable System/in)
-                          os (uio/->statsable (uio/to a))]
+    "to"      (with-open [is (uio/->countable System/in)
+                          os (uio/->countable (uio/to a))]
                 (copy *get-status-fn is os is os nil))
 
-    "to*"     (with-open [is  (uio/->statsable System/in)
-                          os  (uio/->statsable (uio/to a))
+    "to*"     (with-open [is  (uio/->countable System/in)
+                          os  (uio/->countable (uio/to a))
                           os* (impl/apply-codecs os (impl/url->seq-of-ext+s->s impl/ext->os->os a))]
                 (copy *get-status-fn is os is os* nil))
 
@@ -264,8 +264,8 @@
                                       ", " (:files %) " file" (s-if-plural (:files %))
                                       ", "  (:dirs %) " dir"  (s-if-plural (:dirs %)))))))
 
-    "copy"    (with-open [is (uio/->statsable (uio/from a))    ; TODO check url-b
-                          os (uio/->statsable (uio/to b))]
+    "copy"    (with-open [is (uio/->countable (uio/from a))    ; TODO check url-b
+                          os (uio/->countable (uio/to b))]
                 (copy *get-status-fn is os is os (try (uio/size a)
                                                       (catch Exception _))))
 

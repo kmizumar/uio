@@ -32,7 +32,7 @@ public class S3 {
         private final MessageDigest partDigest = MessageDigest.getInstance("MD5");
 
         private final File partTempFile;
-        private Streams.StatsableOutputStream partOutputStream;
+        private Streams.CountableOutputStream partOutputStream;
         private int partIndex;
 
         private boolean closed;
@@ -44,7 +44,7 @@ public class S3 {
                     .withCannedACL(cannedAclOrNull)); // setting only here, not setting in UploadPartRequest
 
             partTempFile = Files.createTempFile("uio-s3-part-", ".tmp").toFile();
-            partOutputStream = new Streams.StatsableOutputStream(Files.newOutputStream(partTempFile.toPath()));
+            partOutputStream = new Streams.CountableOutputStream(Files.newOutputStream(partTempFile.toPath()));
         }
 
         public void write(int b) throws IOException {
@@ -96,7 +96,7 @@ public class S3 {
                 tags.add(remotePartEtag);
 
                 partDigest.reset();
-                partOutputStream = new Streams.StatsableOutputStream(Files.newOutputStream(partTempFile.toPath()));
+                partOutputStream = new Streams.CountableOutputStream(Files.newOutputStream(partTempFile.toPath()));
                 partIndex++;
             } catch (Exception e) {
                 abort();

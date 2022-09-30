@@ -11,9 +11,9 @@
                    Streams$Finalizer
                    Streams$FinalizingInputStream
                    Streams$NullOutputStream
-                   Streams$Statsable
-                   Streams$StatsableInputStream
-                   Streams$StatsableOutputStream]
+                   Streams$Countable
+                   Streams$CountableInputStream
+                   Streams$CountableOutputStream]
            [java.nio.file AccessDeniedException
                           DirectoryNotEmptyException
                           FileAlreadyExistsException
@@ -528,14 +528,14 @@
 ; => nil
 ;
 ; Example (advanced): measure compressed VS uncompressed ratio
-; (with-open [os-file (->statsable (jio/output-stream (->nil-os)))
-;             os-gz   (->statsable (encode :gz os-file))
+; (with-open [os-file (->countable (jio/output-stream (->nil-os)))
+;             os-gz   (->countable (encode :gz os-file))
 ;             w       (jio/writer os-gz)]
 ;
 ;   ; ==> (.write {Writer                           --> w
-;   ;               {StatsableOutputStream          --> os-gz
+;   ;               {CountableOutputStream          --> os-gz
 ;   ;                 {GZIPOutputStream
-;   ;                   {StatsableOutputStream      --> os-file
+;   ;                   {CountableOutputStream      --> os-file
 ;   ;                     {NullOutputStream}}}}}
 ;
 ;   (doseq [i (range 10000)]
@@ -550,15 +550,15 @@
 ;
 ;  => {:original 48890, :compressed 22196}
 ;
-(defn ->statsable [^Closeable is-or-os]
-  (cond (instance? InputStream  is-or-os) (Streams$StatsableInputStream. is-or-os)
-        (instance? OutputStream is-or-os) (Streams$StatsableOutputStream. is-or-os)
+(defn ->countable [^Closeable is-or-os]
+  (cond (instance? InputStream  is-or-os) (Streams$CountableInputStream. is-or-os)
+        (instance? OutputStream is-or-os) (Streams$CountableOutputStream. is-or-os)
         :else                             (die (str "Expected InputStream or OutputStream, but got "
                                                     (if (nil? is-or-os)
                                                       "nil"
                                                       (.getName (type is-or-os)))))))
 
-(defn byte-count [^Streams$Statsable s]
+(defn byte-count [^Streams$Countable s]
   (.getByteCount s))
 
 ; Adding digest calculation to existing input and output streams.
