@@ -22,6 +22,7 @@
                  [org.apache.commons/commons-compress "1.21"] ; bzip2, xz
                  [org.tukaani/xz "1.9"]                     ; xz (needed by `commons-compress`)
 
+                 [org.clojure/tools.logging "1.2.4"]
                  [org.clojure/tools.cli "1.0.206"]]         ; main
 
   :jar-exclusions [#".*\.java"]

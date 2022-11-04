@@ -4,6 +4,7 @@
             [clojure.string :as str]
             [clojure.java.io :as jio]
             [clojure.tools.cli :as cli]
+            [clojure.tools.logging :as log]
             [uio.fs.hdfs :as hdfs])
   (:import [org.apache.log4j Level Logger ConsoleAppender PatternLayout]
            [java.text SimpleDateFormat]
@@ -126,6 +127,8 @@
          "                              -h - print sizes in human readable format"
          "                              -t - print a chart with relative sizes and percentages"
          "                              -s - summarize size"
+         ""
+         "                      uio sync     hdfs://path/to/ s3://bucket/path/to"
          ""
          "                      uio --help - print this help"
          ""
@@ -334,6 +337,37 @@
                                                   (str (uio/escape-url (name k)) "=" (uio/escape-url v)))))))))
                    sort
                    (run! println))
+
+    "sync" (let [url-a a
+                 url-b b
+                 _ (do
+                     (when (not= "hdfs" (uio/scheme url-a))
+                       (die (str "`sync` supports 'hdfs' only as src. Actual scheme was: "
+                                 (pr-str (uio/scheme url-a)) " in URL " url-a)))
+                     (when (not= "s3" (uio/scheme url-b))
+                       (die (str "`sync` supports 's3' only as dest. Actual scheme was: "
+                                 (pr-str (uio/scheme url-b)) " in URL " url-b))
+                       ))
+
+                 dest-name #(str/replace % url-a url-b)
+
+                 copy-file
+                 #(do
+                    (log/info "copying" %1 "->" %2)
+                    (with-open [is (uio/->countable (uio/from %1))
+                                os (uio/->countable (uio/to %2))]
+                      (copy *get-status-fn is os is os (try (uio/size %1)
+                                                            (catch Exception _)))))
+
+                 sync-url
+                 (fn sync-url [url]
+                   (doseq [x (uio/ls url {:recurse nil :attrs true})]
+                     (if (:dir x)
+                       (sync-url (:url x))
+                       (copy-file (:url x) (dest-name (:url x))))
+                     ))
+                 ]
+             (sync-url url-a))
 
     (do (errln (if op
                  (str "Unknown command: " op)
