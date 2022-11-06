@@ -10,7 +10,8 @@
            [java.text SimpleDateFormat]
            [java.util TimeZone]
            [clojure.lang Counted]
-           [java.io InputStream OutputStream])
+           [java.io InputStream OutputStream]
+           (sun.misc Signal SignalHandler))
   (:gen-class))
 
 (defn err [& msg]
@@ -367,6 +368,10 @@
                        (copy-file (:url x) (dest-name (:url x))))
                      ))
                  ]
+             ;; FIXME
+             ;; without this, tons of "Login successful for user ... using keytab file ... Keytab auto renewwal enabled : .."
+             ;; will be generated despite disabling HDFS logging
+             (.setLevel (Logger/getLogger "org.apache.hadoop.security.UserGroupInformation") Level/OFF)
              (sync-url url-a))
 
     (do (errln (if op
@@ -397,11 +402,11 @@
                                         ["-c" "--config URL"     "Use this config instead of ~/.uio/config.clj"]
                                         [nil "--help"            "Print help"                                              :default false]])]
 
-    ; trap Ctrl+T -- print status (for long-running tasks like `copy`)
+    ; trap SIGUSR2 -- print status (for long-running tasks like `copy`)
     (try
-      (sun.misc.Signal/handle
-        (sun.misc.Signal. "INFO")
-        (reify sun.misc.SignalHandler
+      (Signal/handle
+        (Signal. "USR2")
+        (reify SignalHandler
           (handle [_ _] (errln (if-let [get-status @*get-status]
                                  (get-status)
                                  "Status unknown")))))
@@ -413,11 +418,11 @@
     (if (-> cli :options :verbose)
       (.addAppender (Logger/getRootLogger)
                     (doto (ConsoleAppender.)
-                          (.setTarget "System.err")
-                          (.setLayout (PatternLayout. "%d [%p|%c|%C{1}] %m%n"))
-                          (.setThreshold Level/WARN)
-                          (.activateOptions)))
-      (.setLevel (Logger/getRoot) Level/OFF))               ; mute HDFS logging by default
+                      (.setTarget "System.err")
+                      (.setLayout (PatternLayout. "%d [%p|%c|%C{1}] %m%n"))
+                      (.setThreshold Level/WARN)
+                      (.activateOptions)))
+      (.setLevel (Logger/getRootLogger) Level/OFF))         ; mute HDFS logging by default
 
     (if (-> cli :options :help)
       (print-usage)
