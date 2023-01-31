@@ -131,6 +131,8 @@
          ""
          "                      uio sync     hdfs://path/to/ s3://bucket/path/to"
          ""
+         "                      uio s3sync   s3://bucket/path/to/ s3://bucket/path/to"
+         ""
          "                      uio --help - print this help"
          ""
          "Common flags:"
@@ -373,6 +375,36 @@
              ;; will be generated despite disabling HDFS logging
              (.setLevel (Logger/getLogger "org.apache.hadoop.security.UserGroupInformation") Level/OFF)
              (sync-url url-a))
+
+    "s3sync" (let [url-a a
+                   url-b b
+                   _ (do
+                       (when (not= "s3" (uio/scheme url-a))
+                         (die (str "`s3sync` supports 's3' only as src. Actual scheme was: "
+                                   (pr-str (uio/scheme url-a)) " in URL " url-a)))
+                       (when (not= "s3" (uio/scheme url-b))
+                         (die (str "`s3sync` supports 's3' only as dest. Actual scheme was: "
+                                   (pr-str (uio/scheme url-b)) " in URL " url-b))
+                         ))
+
+                   dest-name #(str/replace % url-a url-b)
+
+                   copy-file
+                   #(do
+                      (log/info "copying" %1 "->" %2)
+                      (with-open [is (uio/->countable (uio/from %1))
+                                  os (uio/->countable (uio/to %2))]
+                        (copy *get-status-fn is os is os (try (uio/size %1)
+                                                              (catch Exception _)))))
+
+                   sync-url
+                   (fn sync-url [url]
+                     (doseq [x (uio/ls url {:recurse true :attrs true})]
+                       (when-not (:dir x)
+                         (copy-file (:url x) (dest-name (:url x))))
+                       ))
+                   ]
+               (sync-url url-a))
 
     (do (errln (if op
                  (str "Unknown command: " op)
